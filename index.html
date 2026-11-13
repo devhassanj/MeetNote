@@ -628,20 +628,22 @@ body {
   }
 
   // ===== RECORDING =====
-  function startRecording() {
-    if (!speechSupported) { toast('Speech recognition not supported'); return; }
-    if (isRecording) return;
+  let sessionFinalTranscript = '';
 
-    currentTranscript = '';
-    $('transcriptText').textContent = '';
-    $('transcriptPartial').textContent = '';
-    $('transcriptPlaceholder').classList.remove('hidden');
-    recordingStart = Date.now();
-    isRecording = true;
+  function cleanupRecognition() {
+    if (recognition) {
+      try {
+        recognition.onresult = null;
+        recognition.onerror = null;
+        recognition.onend = null;
+        recognition.abort();
+      } catch(e) {}
+      recognition = null;
+    }
+  }
 
-    showScreen('record');
-    waveform.classList.add('active');
-    startTimer();
+  function initRecognition() {
+    sessionFinalTranscript = '';
 
     recognition = new SpeechRecognition();
     recognition.continuous = true;
@@ -649,19 +651,17 @@ body {
     recognition.lang = 'en-US';
     recognition.maxAlternatives = 1;
 
-    let finalTranscript = '';
-
     recognition.onresult = (e) => {
       let interim = '';
       for (let i = e.resultIndex; i < e.results.length; i++) {
         const t = e.results[i][0].transcript;
         if (e.results[i].isFinal) {
-          finalTranscript += t + ' ';
+          sessionFinalTranscript += t + ' ';
         } else {
           interim += t;
         }
       }
-      currentTranscript = finalTranscript.trim();
+      currentTranscript = sessionFinalTranscript.trim();
       $('transcriptText').textContent = currentTranscript;
       $('transcriptPartial').textContent = interim;
       if (currentTranscript || interim) {
@@ -675,17 +675,36 @@ body {
         toast('Microphone access denied');
         $('recordStatus').textContent = 'Microphone permission required';
         waveform.classList.remove('active');
+        isRecording = false;
       } else if (e.error === 'no-speech') {
-        // Restart silently
+        // Safari fires this after silence — ignored, onend will restart
       } else if (e.error === 'network') {
         $('recordStatus').textContent = 'Network error — check connection';
+      } else if (e.error === 'aborted') {
+        // We aborted intentionally during cleanup — ignore
       }
     };
 
     recognition.onend = () => {
       // Auto-restart if still recording (Safari stops after silence)
       if (isRecording) {
-        try { recognition.start(); } catch(e) {}
+        setTimeout(() => {
+          if (!isRecording) return;
+          try {
+            recognition.start();
+          } catch(e) {
+            // If restart fails, create a brand new instance
+            setTimeout(() => {
+              if (!isRecording) return;
+              cleanupRecognition();
+              initRecognition();
+              try {
+                recognition.start();
+                $('recordStatus').textContent = 'Listening to your meeting…';
+              } catch(e2) {}
+            }, 500);
+          }
+        }, 100);
       }
     };
 
@@ -694,8 +713,34 @@ body {
       $('recordStatus').textContent = 'Listening to your meeting…';
     } catch(e) {
       toast('Could not start recording');
+      isRecording = false;
       showScreen('home');
     }
+  }
+
+  function startRecording() {
+    if (!speechSupported) { toast('Speech recognition not supported'); return; }
+    if (isRecording) return;
+
+    // Fully clean up any previous recognition session
+    cleanupRecognition();
+
+    currentTranscript = '';
+    $('transcriptText').textContent = '';
+    $('transcriptPartial').textContent = '';
+    $('transcriptPlaceholder').classList.remove('hidden');
+    recordingStart = Date.now();
+    isRecording = true;
+
+    showScreen('record');
+    waveform.classList.add('active');
+    startTimer();
+
+    // Delay to let iOS fully release the old audio session
+    setTimeout(() => {
+      if (!isRecording) return;
+      initRecognition();
+    }, 400);
   }
 
   function scrollTranscript() {
@@ -716,10 +761,8 @@ body {
     clearInterval(timerInterval);
     waveform.classList.remove('active');
 
-    if (recognition) {
-      try { recognition.stop(); } catch(e) {}
-      recognition = null;
-    }
+    // Use cleanup to properly tear down handlers and abort
+    cleanupRecognition();
 
     const duration = fmtDuration(Date.now() - recordingStart);
     const transcript = currentTranscript.trim();
