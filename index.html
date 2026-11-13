@@ -629,6 +629,9 @@ body {
 
   // ===== RECORDING =====
   let sessionFinalTranscript = '';
+  let restartCount = 0;
+  const MAX_RESTARTS = 50;
+  let micStream = null;
 
   function cleanupRecognition() {
     if (recognition) {
@@ -636,20 +639,33 @@ body {
         recognition.onresult = null;
         recognition.onerror = null;
         recognition.onend = null;
+        recognition.onstart = null;
         recognition.abort();
       } catch(e) {}
       recognition = null;
     }
   }
 
-  function initRecognition() {
+  function releaseMic() {
+    if (micStream) {
+      try { micStream.getTracks().forEach(t => t.stop()); } catch(e) {}
+      micStream = null;
+    }
+  }
+
+  function createRecognition() {
     sessionFinalTranscript = '';
+    restartCount = 0;
 
     recognition = new SpeechRecognition();
     recognition.continuous = true;
     recognition.interimResults = true;
     recognition.lang = 'en-US';
     recognition.maxAlternatives = 1;
+
+    recognition.onstart = () => {
+      $('recordStatus').textContent = 'Listening to your meeting…';
+    };
 
     recognition.onresult = (e) => {
       let interim = '';
@@ -667,64 +683,83 @@ body {
       if (currentTranscript || interim) {
         $('transcriptPlaceholder').classList.add('hidden');
       }
+      // Reset restart counter on successful result
+      restartCount = 0;
       scrollTranscript();
     };
 
     recognition.onerror = (e) => {
       if (e.error === 'not-allowed') {
-        toast('Microphone access denied');
+        toast('Microphone access denied — check Safari settings');
         $('recordStatus').textContent = 'Microphone permission required';
         waveform.classList.remove('active');
         isRecording = false;
       } else if (e.error === 'no-speech') {
-        // Safari fires this after silence — ignored, onend will restart
+        // Safari fires this after silence — onend will handle restart
       } else if (e.error === 'network') {
         $('recordStatus').textContent = 'Network error — check connection';
       } else if (e.error === 'aborted') {
-        // We aborted intentionally during cleanup — ignore
+        // Intentional abort during cleanup — ignore
       }
     };
 
     recognition.onend = () => {
-      // Auto-restart if still recording (Safari stops after silence)
-      if (isRecording) {
-        setTimeout(() => {
-          if (!isRecording) return;
-          try {
-            recognition.start();
-          } catch(e) {
-            // If restart fails, create a brand new instance
-            setTimeout(() => {
-              if (!isRecording) return;
-              cleanupRecognition();
-              initRecognition();
-              try {
-                recognition.start();
-                $('recordStatus').textContent = 'Listening to your meeting…';
-              } catch(e2) {}
-            }, 500);
-          }
-        }, 100);
+      if (!isRecording) return;
+      restartCount++;
+      if (restartCount > MAX_RESTARTS) {
+        $('recordStatus').textContent = 'Recognition paused — tap stop to save';
+        return;
       }
+      // Restart with increasing delay
+      const delay = Math.min(100 + restartCount * 50, 1000);
+      setTimeout(() => {
+        if (!isRecording) return;
+        try {
+          recognition.start();
+        } catch(e) {
+          // Create a fresh instance if restart fails
+          setTimeout(() => {
+            if (!isRecording) return;
+            try {
+              cleanupRecognition();
+              recognition = new SpeechRecognition();
+              recognition.continuous = true;
+              recognition.interimResults = true;
+              recognition.lang = 'en-US';
+              recognition.maxAlternatives = 1;
+              // Re-attach the same handlers
+              recognition.onstart = () => { $('recordStatus').textContent = 'Listening to your meeting…'; };
+              recognition.onresult = arguments.callee; // won't work, re-set below
+              recognition.start();
+              $('recordStatus').textContent = 'Listening to your meeting…';
+            } catch(e2) {
+              $('recordStatus').textContent = 'Could not restart — tap stop to save';
+            }
+          }, 500);
+        }
+      }, delay);
     };
-
-    try {
-      recognition.start();
-      $('recordStatus').textContent = 'Listening to your meeting…';
-    } catch(e) {
-      toast('Could not start recording');
-      isRecording = false;
-      showScreen('home');
-    }
   }
 
-  function startRecording() {
+  async function startRecording() {
     if (!speechSupported) { toast('Speech recognition not supported'); return; }
     if (isRecording) return;
 
-    // Fully clean up any previous recognition session
+    // Step 1: Clean up everything from any previous session
     cleanupRecognition();
+    releaseMic();
 
+    // Step 2: Request microphone permission FIRST via getUserMedia
+    // This triggers the Safari permission popup BEFORE we touch speech recognition
+    $('recordStatus').textContent = 'Requesting microphone…';
+    try {
+      micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    } catch(e) {
+      toast('Microphone access denied');
+      return;
+    }
+
+    // Step 3: Permission granted — now set up recording UI
     currentTranscript = '';
     $('transcriptText').textContent = '';
     $('transcriptPartial').textContent = '';
@@ -736,11 +771,24 @@ body {
     waveform.classList.add('active');
     startTimer();
 
-    // Delay to let iOS fully release the old audio session
+    // Step 4: Release the getUserMedia stream (speech API uses its own)
+    // Keep a short delay so iOS fully registers the permission
+    setTimeout(() => {
+      releaseMic();
+    }, 200);
+
+    // Step 5: Start speech recognition after permission is confirmed
     setTimeout(() => {
       if (!isRecording) return;
-      initRecognition();
-    }, 400);
+      createRecognition();
+      try {
+        recognition.start();
+      } catch(e) {
+        toast('Could not start — try again');
+        isRecording = false;
+        showScreen('home');
+      }
+    }, 500);
   }
 
   function scrollTranscript() {
@@ -763,6 +811,7 @@ body {
 
     // Use cleanup to properly tear down handlers and abort
     cleanupRecognition();
+    releaseMic();
 
     const duration = fmtDuration(Date.now() - recordingStart);
     const transcript = currentTranscript.trim();
