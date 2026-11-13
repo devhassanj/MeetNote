@@ -1,0 +1,908 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="MeetNote">
+<meta name="theme-color" content="#0f1219">
+<link rel="apple-touch-icon" href="icon.png">
+<link rel="manifest" href="manifest.json">
+<title>MeetNote</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg-base: #0f1219;
+  --bg-raised: #181d27;
+  --bg-card: #1e2433;
+  --bg-card-hover: #252c3d;
+  --bg-input: #141924;
+  --text-1: #f0f2f5;
+  --text-2: #8b93a5;
+  --text-3: #555d72;
+  --accent: #ff6b5a;
+  --accent-glow: rgba(255, 107, 90, 0.25);
+  --accent-soft: rgba(255, 107, 90, 0.12);
+  --blue: #5b8def;
+  --blue-soft: rgba(91, 141, 239, 0.12);
+  --green: #4ecb71;
+  --green-soft: rgba(78, 203, 113, 0.12);
+  --yellow: #f5c542;
+  --yellow-soft: rgba(245, 197, 66, 0.12);
+  --border: rgba(255, 255, 255, 0.06);
+  --radius: 14px;
+  --radius-sm: 10px;
+  --font: 'DM Sans', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  color-scheme: dark;
+}
+
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --bg-base: #f5f6f8;
+    --bg-raised: #ffffff;
+    --bg-card: #ffffff;
+    --bg-card-hover: #f0f1f4;
+    --bg-input: #edeef2;
+    --text-1: #111318;
+    --text-2: #6b7280;
+    --text-3: #9ca3af;
+    --accent: #e5523e;
+    --accent-glow: rgba(229, 82, 62, 0.2);
+    --accent-soft: rgba(229, 82, 62, 0.08);
+    --blue: #3b6fd6;
+    --blue-soft: rgba(59, 111, 214, 0.08);
+    --green: #2da44e;
+    --green-soft: rgba(45, 164, 78, 0.08);
+    --yellow: #d4a017;
+    --yellow-soft: rgba(212, 160, 23, 0.08);
+    --border: rgba(0, 0, 0, 0.08);
+    color-scheme: light;
+  }
+}
+:root[data-theme="light"] {
+  --bg-base: #f5f6f8;
+  --bg-raised: #ffffff;
+  --bg-card: #ffffff;
+  --bg-card-hover: #f0f1f4;
+  --bg-input: #edeef2;
+  --text-1: #111318;
+  --text-2: #6b7280;
+  --text-3: #9ca3af;
+  --accent: #e5523e;
+  --accent-glow: rgba(229, 82, 62, 0.2);
+  --accent-soft: rgba(229, 82, 62, 0.08);
+  --blue: #3b6fd6;
+  --blue-soft: rgba(59, 111, 214, 0.08);
+  --green: #2da44e;
+  --green-soft: rgba(45, 164, 78, 0.08);
+  --yellow: #d4a017;
+  --yellow-soft: rgba(212, 160, 23, 0.08);
+  --border: rgba(0, 0, 0, 0.08);
+  color-scheme: light;
+}
+
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  font-family: var(--font);
+  background: var(--bg-base);
+  color: var(--text-1);
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding-top: var(--safe-top);
+  padding-bottom: var(--safe-bottom);
+}
+
+/* Header */
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 20px 10px;
+  flex-shrink: 0;
+}
+.header-title { font-size: 22px; font-weight: 700; letter-spacing: -0.3px; }
+.header-title span { color: var(--accent); }
+.header-right { display: flex; gap: 8px; }
+.icon-btn {
+  width: 38px; height: 38px;
+  border-radius: 50%;
+  border: none;
+  background: var(--bg-card);
+  color: var(--text-2);
+  font-size: 16px;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.icon-btn:active { background: var(--bg-card-hover); }
+
+/* Screens */
+.screen {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  padding: 0 20px;
+}
+.screen::-webkit-scrollbar { display: none; }
+.hidden { display: none !important; }
+
+/* Empty state */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  text-align: center;
+}
+.empty-icon {
+  width: 80px; height: 80px;
+  border-radius: 24px;
+  background: var(--accent-soft);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 36px;
+  margin-bottom: 20px;
+}
+.empty-title { font-size: 18px; font-weight: 600; margin-bottom: 6px; }
+.empty-sub { font-size: 14px; color: var(--text-2); line-height: 1.5; max-width: 260px; }
+
+/* Meeting list */
+.section-label {
+  font-size: 13px; font-weight: 600; color: var(--text-3);
+  text-transform: uppercase; letter-spacing: 0.8px;
+  margin: 6px 0 12px;
+}
+.meeting-list { display: flex; flex-direction: column; gap: 10px; padding-bottom: 120px; }
+.meeting-card {
+  background: var(--bg-card);
+  border-radius: var(--radius);
+  padding: 16px;
+  cursor: pointer;
+  transition: background 0.15s, transform 0.1s;
+  border: 1px solid var(--border);
+  position: relative;
+}
+.meeting-card:active { background: var(--bg-card-hover); transform: scale(0.98); }
+.meeting-card-top {
+  display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;
+}
+.meeting-date { font-size: 12px; color: var(--text-3); font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; }
+.meeting-duration {
+  font-size: 12px; color: var(--text-2); background: var(--bg-input);
+  padding: 3px 8px; border-radius: 20px; font-variant-numeric: tabular-nums;
+}
+.meeting-title { font-size: 15px; font-weight: 600; line-height: 1.4; margin-bottom: 6px; }
+.meeting-preview {
+  font-size: 13px; color: var(--text-2); line-height: 1.5;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.meeting-delete {
+  position: absolute; top: 12px; right: 12px;
+  width: 28px; height: 28px; border-radius: 50%;
+  border: none; background: transparent; color: var(--text-3);
+  font-size: 14px; cursor: pointer; display: none;
+  align-items: center; justify-content: center;
+}
+.meeting-card:hover .meeting-delete,
+.meeting-card:active .meeting-delete { display: flex; }
+
+/* Bottom bar */
+.bottom-bar {
+  position: fixed; bottom: 0; left: 0; right: 0;
+  padding: 16px 20px calc(16px + var(--safe-bottom));
+  display: flex; align-items: center; justify-content: center;
+  background: linear-gradient(transparent, var(--bg-base) 40%);
+  pointer-events: none; z-index: 100;
+}
+.bottom-bar > * { pointer-events: auto; }
+
+.record-btn {
+  width: 68px; height: 68px;
+  border-radius: 50%; border: none;
+  background: var(--accent); color: white;
+  font-size: 26px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 4px 24px var(--accent-glow);
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+.record-btn:active { transform: scale(0.92); }
+
+.record-bar {
+  display: flex; align-items: center; gap: 16px;
+  background: var(--bg-raised); border-radius: 40px;
+  padding: 8px 8px 8px 20px;
+  border: 1px solid var(--border);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+}
+.record-indicator {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--accent); animation: blink 1s step-end infinite;
+}
+@keyframes blink { 50% { opacity: 0.3; } }
+.record-timer {
+  font-size: 16px; font-weight: 600;
+  font-variant-numeric: tabular-nums; color: var(--accent); min-width: 56px;
+}
+.stop-btn {
+  width: 52px; height: 52px;
+  border-radius: 50%; border: none;
+  background: var(--accent); color: white;
+  font-size: 20px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: transform 0.12s;
+}
+.stop-btn:active { transform: scale(0.9); }
+
+/* Recording screen */
+.recording-header { text-align: center; padding: 20px 0 16px; }
+.recording-label {
+  font-size: 13px; font-weight: 600; color: var(--accent);
+  text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px;
+}
+.recording-status { font-size: 14px; color: var(--text-2); }
+
+.waveform {
+  display: flex; align-items: center; justify-content: center;
+  gap: 3px; height: 48px; margin: 10px 0 20px;
+}
+.waveform .bar {
+  width: 3px; border-radius: 2px; background: var(--accent);
+  opacity: 0.6; height: 6px;
+}
+.waveform.active .bar { animation: wave 0.8s ease-in-out infinite alternate; }
+.waveform .bar:nth-child(1) { animation-delay: 0s; }
+.waveform .bar:nth-child(2) { animation-delay: 0.1s; }
+.waveform .bar:nth-child(3) { animation-delay: 0.2s; }
+.waveform .bar:nth-child(4) { animation-delay: 0.3s; }
+.waveform .bar:nth-child(5) { animation-delay: 0.4s; }
+.waveform .bar:nth-child(6) { animation-delay: 0.3s; }
+.waveform .bar:nth-child(7) { animation-delay: 0.2s; }
+.waveform .bar:nth-child(8) { animation-delay: 0.1s; }
+.waveform .bar:nth-child(9) { animation-delay: 0.05s; }
+.waveform .bar:nth-child(10) { animation-delay: 0.15s; }
+.waveform .bar:nth-child(11) { animation-delay: 0.25s; }
+.waveform .bar:nth-child(12) { animation-delay: 0.35s; }
+.waveform .bar:nth-child(13) { animation-delay: 0.45s; }
+.waveform .bar:nth-child(14) { animation-delay: 0.3s; }
+.waveform .bar:nth-child(15) { animation-delay: 0.2s; }
+@keyframes wave { from { height: 6px; } to { height: 36px; } }
+
+.transcript-box {
+  background: var(--bg-card); border-radius: var(--radius);
+  border: 1px solid var(--border); padding: 16px;
+  min-height: 200px; max-height: calc(100vh - 340px);
+  overflow-y: auto; -webkit-overflow-scrolling: touch;
+}
+.transcript-box::-webkit-scrollbar { display: none; }
+.transcript-label {
+  font-size: 11px; font-weight: 600; color: var(--text-3);
+  text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 10px;
+}
+.transcript-text { font-size: 15px; line-height: 1.65; color: var(--text-1); }
+.transcript-partial { color: var(--text-3); font-style: italic; }
+.transcript-placeholder {
+  color: var(--text-3); font-style: italic; font-size: 14px;
+  text-align: center; padding: 40px 0;
+}
+
+/* Processing screen */
+.processing-state {
+  display: flex; flex-direction: column; align-items: center;
+  justify-content: center; padding: 80px 20px; text-align: center;
+}
+.processing-spinner {
+  width: 56px; height: 56px;
+  border: 3px solid var(--border); border-top-color: var(--accent);
+  border-radius: 50%; animation: spin 0.8s linear infinite; margin-bottom: 24px;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.processing-text { font-size: 16px; font-weight: 600; margin-bottom: 6px; }
+.processing-sub { font-size: 14px; color: var(--text-2); }
+
+/* Notes screen */
+.notes-header { display: flex; align-items: center; gap: 12px; padding: 8px 0 12px; }
+.back-btn {
+  width: 36px; height: 36px; border-radius: 50%; border: none;
+  background: var(--bg-card); color: var(--text-2); font-size: 18px;
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0; transition: background 0.15s;
+}
+.back-btn:active { background: var(--bg-card-hover); }
+.notes-meta { flex: 1; min-width: 0; }
+.notes-title-text {
+  font-size: 17px; font-weight: 700;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.notes-info { font-size: 12px; color: var(--text-3); margin-top: 2px; }
+
+.notes-actions { display: flex; gap: 10px; padding: 4px 0 16px; }
+.action-btn {
+  flex: 1; padding: 14px 12px; border-radius: var(--radius-sm);
+  border: 1px solid var(--border); background: var(--bg-card);
+  color: var(--text-1); font-family: var(--font); font-size: 14px;
+  font-weight: 600; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  transition: background 0.15s, transform 0.1s;
+}
+.action-btn:active { background: var(--bg-card-hover); transform: scale(0.97); }
+.action-btn.primary { background: var(--accent); border-color: var(--accent); color: white; }
+.action-btn.primary:active { opacity: 0.85; }
+
+.notes-body { padding-bottom: 40px; }
+.notes-section { margin-bottom: 16px; }
+.notes-section-title {
+  font-size: 11px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 1px; margin-bottom: 8px;
+  display: flex; align-items: center; gap: 8px; color: var(--text-2);
+}
+.dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.dot-blue { background: var(--blue); }
+.dot-green { background: var(--green); }
+.dot-yellow { background: var(--yellow); }
+.dot-accent { background: var(--accent); }
+
+.notes-content {
+  background: var(--bg-card); border-radius: var(--radius);
+  border: 1px solid var(--border); padding: 16px;
+  font-size: 15px; line-height: 1.65; white-space: pre-wrap; word-break: break-word;
+}
+
+/* Claude prompt modal */
+.modal-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.6);
+  display: flex; align-items: flex-end; justify-content: center;
+  z-index: 300; opacity: 0; pointer-events: none;
+  transition: opacity 0.25s;
+}
+.modal-overlay.show { opacity: 1; pointer-events: auto; }
+.modal {
+  background: var(--bg-raised); border-radius: 20px 20px 0 0;
+  padding: 24px 20px calc(24px + var(--safe-bottom));
+  width: 100%; max-height: 80vh; overflow-y: auto;
+  transform: translateY(100%); transition: transform 0.3s ease-out;
+}
+.modal-overlay.show .modal { transform: translateY(0); }
+.modal-handle {
+  width: 36px; height: 4px; border-radius: 2px;
+  background: var(--text-3); margin: 0 auto 20px; opacity: 0.5;
+}
+.modal-title { font-size: 18px; font-weight: 700; margin-bottom: 8px; }
+.modal-desc { font-size: 14px; color: var(--text-2); line-height: 1.5; margin-bottom: 16px; }
+.modal-box {
+  background: var(--bg-input); border-radius: var(--radius-sm);
+  border: 1px solid var(--border); padding: 14px;
+  font-size: 13px; line-height: 1.5; color: var(--text-2);
+  max-height: 200px; overflow-y: auto; margin-bottom: 16px;
+  white-space: pre-wrap; word-break: break-word;
+}
+.modal-box::-webkit-scrollbar { display: none; }
+.modal-actions { display: flex; gap: 10px; }
+
+/* Unsupported banner */
+.unsupported-banner {
+  background: var(--yellow-soft); border: 1px solid rgba(245,197,66,0.2);
+  border-radius: var(--radius-sm); padding: 16px; margin: 12px 0;
+  font-size: 14px; line-height: 1.5; text-align: center;
+}
+.unsupported-banner strong { display: block; margin-bottom: 4px; }
+
+/* Toast */
+.toast {
+  position: fixed; bottom: 100px; left: 50%;
+  transform: translateX(-50%) translateY(20px);
+  background: var(--bg-raised); color: var(--text-1);
+  padding: 12px 24px; border-radius: 30px;
+  font-size: 14px; font-weight: 500;
+  border: 1px solid var(--border);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+  opacity: 0; transition: opacity 0.25s, transform 0.25s;
+  pointer-events: none; z-index: 200; white-space: nowrap;
+}
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="header">
+    <div class="header-title">Meet<span>Note</span></div>
+    <div class="header-right" id="headerRight"></div>
+  </div>
+
+  <!-- HOME -->
+  <div class="screen" id="homeScreen">
+    <div id="meetingsList"></div>
+  </div>
+
+  <!-- RECORDING -->
+  <div class="screen hidden" id="recordScreen">
+    <div class="recording-header">
+      <div class="recording-label">● Recording</div>
+      <div class="recording-status" id="recordStatus">Listening to your meeting…</div>
+    </div>
+    <div class="waveform" id="waveform"></div>
+    <div class="transcript-box">
+      <div class="transcript-label">Live Transcript</div>
+      <div id="transcriptArea">
+        <span class="transcript-text" id="transcriptText"></span>
+        <span class="transcript-partial" id="transcriptPartial"></span>
+      </div>
+      <div class="transcript-placeholder" id="transcriptPlaceholder">Start speaking…</div>
+    </div>
+  </div>
+
+  <!-- PROCESSING -->
+  <div class="screen hidden" id="processScreen">
+    <div class="processing-state">
+      <div class="processing-spinner"></div>
+      <div class="processing-text" id="processTitle">Generating notes…</div>
+      <div class="processing-sub" id="processSub">Analyzing your meeting transcript</div>
+    </div>
+  </div>
+
+  <!-- NOTES -->
+  <div class="screen hidden" id="notesScreen">
+    <div class="notes-header">
+      <button class="back-btn" id="backBtn">←</button>
+      <div class="notes-meta">
+        <div class="notes-title-text" id="notesTitle"></div>
+        <div class="notes-info" id="notesInfo"></div>
+      </div>
+    </div>
+    <div class="notes-actions" id="notesActions"></div>
+    <div class="notes-body" id="notesBody"></div>
+  </div>
+
+  <!-- BOTTOM BAR -->
+  <div class="bottom-bar" id="bottomBar"></div>
+
+  <!-- MODAL -->
+  <div class="modal-overlay" id="modalOverlay">
+    <div class="modal" id="modal"></div>
+  </div>
+
+  <!-- TOAST -->
+  <div class="toast" id="toast"></div>
+</div>
+
+<script>
+(function() {
+  'use strict';
+
+  const $ = id => document.getElementById(id);
+
+  // Check speech recognition support
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  const speechSupported = !!SpeechRecognition;
+
+  // State
+  let meetings = [];
+  let recognition = null;
+  let currentTranscript = '';
+  let recordingStart = null;
+  let timerInterval = null;
+  let viewingId = null;
+  let isRecording = false;
+
+  // Build waveform
+  const waveform = $('waveform');
+  for (let i = 0; i < 15; i++) {
+    const bar = document.createElement('div');
+    bar.className = 'bar';
+    waveform.appendChild(bar);
+  }
+
+  // Storage
+  function load() {
+    try {
+      const d = localStorage.getItem('meetnote_v2');
+      if (d) meetings = JSON.parse(d);
+    } catch(e) { meetings = []; }
+  }
+  function save() {
+    try { localStorage.setItem('meetnote_v2', JSON.stringify(meetings)); } catch(e) {}
+  }
+
+  // Toast
+  let toastTimer;
+  function toast(msg) {
+    const el = $('toast');
+    el.textContent = msg;
+    el.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => el.classList.remove('show'), 2200);
+  }
+
+  // Helpers
+  function esc(s) { const d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; }
+  function fmtDuration(ms) {
+    const s = Math.floor(ms / 1000), m = Math.floor(s / 60);
+    return `${m}:${String(s % 60).padStart(2, '0')}`;
+  }
+  function fmtDate(ts) {
+    return new Date(ts).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  }
+  function fmtTime(ts) {
+    return new Date(ts).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+  }
+
+  // ===== SCREENS =====
+  function showScreen(name) {
+    [$('homeScreen'), $('recordScreen'), $('processScreen'), $('notesScreen')]
+      .forEach(s => s.classList.add('hidden'));
+
+    const map = { home: 'homeScreen', record: 'recordScreen', process: 'processScreen', notes: 'notesScreen' };
+    $(map[name]).classList.remove('hidden');
+
+    const bb = $('bottomBar');
+    $('headerRight').innerHTML = '';
+
+    if (name === 'home') {
+      bb.classList.remove('hidden');
+      bb.innerHTML = `<button class="record-btn" id="startBtn">🎙</button>`;
+      $('startBtn').addEventListener('click', startRecording);
+      renderMeetings();
+    } else if (name === 'record') {
+      bb.classList.remove('hidden');
+      bb.innerHTML = `
+        <div class="record-bar">
+          <div class="record-indicator"></div>
+          <div class="record-timer" id="timerDisplay">0:00</div>
+          <button class="stop-btn" id="stopBtn">◼</button>
+        </div>`;
+      $('stopBtn').addEventListener('click', stopRecording);
+    } else {
+      bb.classList.add('hidden');
+    }
+  }
+
+  // ===== MEETING LIST =====
+  function renderMeetings() {
+    const el = $('meetingsList');
+    if (!speechSupported) {
+      el.innerHTML = `
+        <div class="unsupported-banner">
+          <strong>Browser not supported</strong>
+          Open this page in <strong>Safari</strong> or <strong>Chrome</strong> on your iPhone for voice recording to work.
+        </div>`;
+      return;
+    }
+    if (meetings.length === 0) {
+      el.innerHTML = `
+        <div class="empty-state">
+          <div class="empty-icon">🎙</div>
+          <div class="empty-title">No meetings yet</div>
+          <div class="empty-sub">Tap the record button to capture your first meeting</div>
+        </div>`;
+      return;
+    }
+    const sorted = [...meetings].sort((a, b) => b.id - a.id);
+    el.innerHTML = `
+      <div class="section-label">Recent Meetings</div>
+      <div class="meeting-list">
+        ${sorted.map(m => `
+          <div class="meeting-card" data-id="${m.id}">
+            <button class="meeting-delete" data-del="${m.id}">✕</button>
+            <div class="meeting-card-top">
+              <div class="meeting-date">${fmtDate(m.id)} · ${fmtTime(m.id)}</div>
+              <div class="meeting-duration">${m.duration}</div>
+            </div>
+            <div class="meeting-title">${esc(m.title)}</div>
+            <div class="meeting-preview">${esc(m.preview)}</div>
+          </div>`).join('')}
+      </div>`;
+    el.querySelectorAll('.meeting-card').forEach(c => {
+      c.addEventListener('click', e => {
+        if (e.target.closest('.meeting-delete')) return;
+        viewMeeting(Number(c.dataset.id));
+      });
+    });
+    el.querySelectorAll('.meeting-delete').forEach(b => {
+      b.addEventListener('click', e => {
+        e.stopPropagation();
+        const id = Number(b.dataset.del);
+        meetings = meetings.filter(m => m.id !== id);
+        save();
+        renderMeetings();
+        toast('Meeting deleted');
+      });
+    });
+  }
+
+  // ===== RECORDING =====
+  function startRecording() {
+    if (!speechSupported) { toast('Speech recognition not supported'); return; }
+    if (isRecording) return;
+
+    currentTranscript = '';
+    $('transcriptText').textContent = '';
+    $('transcriptPartial').textContent = '';
+    $('transcriptPlaceholder').classList.remove('hidden');
+    recordingStart = Date.now();
+    isRecording = true;
+
+    showScreen('record');
+    waveform.classList.add('active');
+    startTimer();
+
+    recognition = new SpeechRecognition();
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.lang = 'en-US';
+    recognition.maxAlternatives = 1;
+
+    let finalTranscript = '';
+
+    recognition.onresult = (e) => {
+      let interim = '';
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        const t = e.results[i][0].transcript;
+        if (e.results[i].isFinal) {
+          finalTranscript += t + ' ';
+        } else {
+          interim += t;
+        }
+      }
+      currentTranscript = finalTranscript.trim();
+      $('transcriptText').textContent = currentTranscript;
+      $('transcriptPartial').textContent = interim;
+      if (currentTranscript || interim) {
+        $('transcriptPlaceholder').classList.add('hidden');
+      }
+      scrollTranscript();
+    };
+
+    recognition.onerror = (e) => {
+      if (e.error === 'not-allowed') {
+        toast('Microphone access denied');
+        $('recordStatus').textContent = 'Microphone permission required';
+        waveform.classList.remove('active');
+      } else if (e.error === 'no-speech') {
+        // Restart silently
+      } else if (e.error === 'network') {
+        $('recordStatus').textContent = 'Network error — check connection';
+      }
+    };
+
+    recognition.onend = () => {
+      // Auto-restart if still recording (Safari stops after silence)
+      if (isRecording) {
+        try { recognition.start(); } catch(e) {}
+      }
+    };
+
+    try {
+      recognition.start();
+      $('recordStatus').textContent = 'Listening to your meeting…';
+    } catch(e) {
+      toast('Could not start recording');
+      showScreen('home');
+    }
+  }
+
+  function scrollTranscript() {
+    const box = $('transcriptText').closest('.transcript-box');
+    box.scrollTop = box.scrollHeight;
+  }
+
+  function startTimer() {
+    clearInterval(timerInterval);
+    timerInterval = setInterval(() => {
+      const el = $('timerDisplay');
+      if (el) el.textContent = fmtDuration(Date.now() - recordingStart);
+    }, 500);
+  }
+
+  function stopRecording() {
+    isRecording = false;
+    clearInterval(timerInterval);
+    waveform.classList.remove('active');
+
+    if (recognition) {
+      try { recognition.stop(); } catch(e) {}
+      recognition = null;
+    }
+
+    const duration = fmtDuration(Date.now() - recordingStart);
+    const transcript = currentTranscript.trim();
+
+    if (!transcript) {
+      toast('No speech detected');
+      showScreen('home');
+      return;
+    }
+
+    // Generate notes
+    showScreen('process');
+    generateNotes(transcript, duration);
+  }
+
+  // ===== NOTE GENERATION =====
+  function generateNotes(transcript, duration) {
+    // Smart extraction using patterns
+    const notes = extractMeetingNotes(transcript);
+    const title = notes.title || 'Meeting Notes';
+    const preview = notes.summary.slice(0, 120);
+
+    const meeting = {
+      id: Date.now(),
+      duration,
+      title,
+      preview,
+      transcript,
+      notes: formatNotes(notes),
+      raw: notes
+    };
+
+    meetings.push(meeting);
+    save();
+    viewMeeting(meeting.id);
+  }
+
+  function extractMeetingNotes(text) {
+    const sentences = text.replace(/([.!?])\s+/g, '$1\n').split('\n').map(s => s.trim()).filter(Boolean);
+    const words = text.toLowerCase();
+
+    // Title: first meaningful phrase or topic
+    let title = 'Meeting Notes';
+    if (sentences.length > 0) {
+      const first = sentences[0];
+      title = first.length > 50 ? first.slice(0, 47) + '…' : first;
+    }
+
+    // Summary: first 2-3 sentences
+    const summary = sentences.slice(0, Math.min(3, sentences.length)).join('. ');
+
+    // Action items: sentences with action-like language
+    const actionPatterns = /\b(need to|needs to|should|must|will|let's|have to|has to|going to|make sure|follow up|send|schedule|prepare|create|update|review|set up|arrange|organize|complete|finish|deliver|submit|call|email|contact|reach out|check|confirm|assign|delegate|investigate|look into|figure out)\b/i;
+    const actions = sentences.filter(s => actionPatterns.test(s));
+
+    // Decisions: sentences with decision language
+    const decisionPatterns = /\b(decided|agreed|approved|confirmed|we'll go with|chosen|selected|finalized|settled on|committed to|plan is|decision is|going with|picked|approved|go ahead|move forward|proceed)\b/i;
+    const decisions = sentences.filter(s => decisionPatterns.test(s));
+
+    // Key points: longer sentences that aren't actions or decisions
+    const keyPoints = sentences
+      .filter(s => s.length > 30 && !actions.includes(s) && !decisions.includes(s))
+      .slice(0, 8);
+
+    return {
+      title,
+      summary: summary || text.slice(0, 200),
+      keyPoints: keyPoints.length > 0 ? keyPoints : sentences.slice(0, 5),
+      actions: actions.slice(0, 10),
+      decisions: decisions.slice(0, 5)
+    };
+  }
+
+  function formatNotes(notes) {
+    let text = '';
+    if (notes.summary) text += 'SUMMARY\n' + notes.summary + '\n\n';
+    if (notes.keyPoints.length) text += 'KEY POINTS\n' + notes.keyPoints.map(p => '- ' + p).join('\n') + '\n\n';
+    if (notes.actions.length) text += 'ACTION ITEMS\n' + notes.actions.map(a => '- ' + a).join('\n') + '\n\n';
+    if (notes.decisions.length) text += 'DECISIONS\n' + notes.decisions.map(d => '- ' + d).join('\n') + '\n\n';
+    return text.trim();
+  }
+
+  // ===== VIEW MEETING =====
+  function viewMeeting(id) {
+    const m = meetings.find(x => x.id === id);
+    if (!m) { showScreen('home'); return; }
+    viewingId = id;
+
+    showScreen('notes');
+    $('notesTitle').textContent = m.title;
+    $('notesInfo').textContent = `${fmtDate(m.id)} · ${fmtTime(m.id)} · ${m.duration}`;
+
+    $('notesActions').innerHTML = `
+      <button class="action-btn" id="copyNotesBtn">📋 Copy</button>
+      <button class="action-btn primary" id="claudeBtn">✨ Claude</button>`;
+
+    $('copyNotesBtn').addEventListener('click', () => copyNotes(m));
+    $('claudeBtn').addEventListener('click', () => showClaudeModal(m));
+
+    renderNoteSections(m);
+  }
+
+  function renderNoteSections(m) {
+    const body = $('notesBody');
+    let html = '';
+    const n = m.raw || {};
+
+    if (n.summary || m.preview) {
+      html += section('Summary', 'dot-blue', n.summary || m.preview);
+    }
+    if (n.keyPoints && n.keyPoints.length) {
+      html += section('Key Points', 'dot-accent', n.keyPoints.map(p => '• ' + p).join('\n'));
+    }
+    if (n.actions && n.actions.length) {
+      html += section('Action Items', 'dot-green', n.actions.map(a => '☐ ' + a).join('\n'));
+    }
+    if (n.decisions && n.decisions.length) {
+      html += section('Decisions', 'dot-yellow', n.decisions.map(d => '✓ ' + d).join('\n'));
+    }
+    html += section('Transcript', 'dot-accent', m.transcript, true);
+
+    body.innerHTML = html;
+  }
+
+  function section(title, dotClass, content, muted) {
+    const style = muted ? ' style="font-size:13px; color:var(--text-2);"' : '';
+    const titleStyle = muted ? ' style="color:var(--text-3)"' : '';
+    return `
+      <div class="notes-section">
+        <div class="notes-section-title"><span class="dot ${dotClass}"${muted ? ' style="opacity:0.4"' : ''}></span> <span${titleStyle}>${title}</span></div>
+        <div class="notes-content"${style}>${esc(content)}</div>
+      </div>`;
+  }
+
+  // ===== COPY =====
+  function copyNotes(m) {
+    const text = `${m.title}\n${fmtDate(m.id)} · ${m.duration}\n${'─'.repeat(30)}\n\n${m.notes}\n\n${'─'.repeat(30)}\nTranscript:\n${m.transcript}`;
+    navigator.clipboard.writeText(text).then(() => toast('Copied ✓')).catch(() => toast('Could not copy'));
+  }
+
+  // ===== CLAUDE MODAL =====
+  function showClaudeModal(m) {
+    const prompt = `Analyze this meeting transcript and generate structured meeting notes with:
+- A short title (max 8 words)
+- Summary (2-3 sentences)
+- Key discussion points (bullet list)
+- Action items with responsible person if mentioned
+- Decisions made
+- Follow-up items
+
+TRANSCRIPT:
+${m.transcript}`;
+
+    const modal = $('modal');
+    modal.innerHTML = `
+      <div class="modal-handle"></div>
+      <div class="modal-title">✨ Enhance with Claude</div>
+      <div class="modal-desc">Copy this prompt and paste it into a Claude chat to get AI-powered meeting notes.</div>
+      <div class="modal-box">${esc(prompt)}</div>
+      <div class="modal-actions">
+        <button class="action-btn" id="modalClose">Cancel</button>
+        <button class="action-btn primary" id="modalCopy">📋 Copy Prompt</button>
+      </div>`;
+
+    $('modalOverlay').classList.add('show');
+    $('modalClose').addEventListener('click', closeModal);
+    $('modalOverlay').addEventListener('click', e => { if (e.target === $('modalOverlay')) closeModal(); });
+    $('modalCopy').addEventListener('click', () => {
+      navigator.clipboard.writeText(prompt)
+        .then(() => { toast('Prompt copied — paste in Claude ✓'); closeModal(); })
+        .catch(() => toast('Could not copy'));
+    });
+  }
+
+  function closeModal() { $('modalOverlay').classList.remove('show'); }
+
+  // ===== BACK =====
+  $('backBtn').addEventListener('click', () => { viewingId = null; showScreen('home'); });
+
+  // ===== BOOT =====
+  load();
+  showScreen('home');
+})();
+</script>
+</body>
+</html>
